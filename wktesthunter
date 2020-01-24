@@ -283,7 +283,8 @@ def main(test, debug, detail, mergeunknown, showexpected, usecolor, checksvn, pr
         unknown="UNKNOWN"
 
     for bot in bots[botkey]:
-        botdir = os.path.join('jsonresults',bot)
+        rootdir = os.path.abspath(os.path.dirname(sys.argv[0]))
+        botdir = os.path.join(rootdir, 'jsonresults', bot)
         if not os.path.isdir(botdir):
             print ("WARNING: Skipping bot %s without results fetched" %bot)
             continue
