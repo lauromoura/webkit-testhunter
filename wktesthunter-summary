@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  Copyright 2020 Igalia S.L.
+#  Lauro Moura <lmoura@igalia.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+# Run with python3 if available (is faster)
+import sys
+import os
+
+try:
+    if sys.version_info[0] < 3:
+        os.execvp("python3", ["python3", __file__] + sys.argv[1:])
+except:
+    # No python3 :(
+    pass
+
+
+import re
+import argparse
+from collections import deque, Counter, OrderedDict
+
+
+def tabulate(rows):
+    """Naive implementation of github-flavored tabulate method from tabulate module."""
+
+    rows = list(rows)
+    if not rows:
+        return ""
+
+    headers = rows[0].keys()
+    rows = [[row.get(h, "") for h in headers] for row in rows]
+
+    col_widths = [len(h) + 2 for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(cell))
+
+    mask = "|" + "|".join((" {:%s} " % (width)) for width in col_widths) + "|"
+    separator = "|" + "|".join(("-" * (width + 2)) for width in col_widths) + "|"
+
+    acc = mask.format(*headers) + "\n"
+
+    acc += separator + "\n"
+    for row in rows:
+        acc += mask.format(*row) + "\n"
+    return acc[:-1]
+
+
+def get_steps(step, limit):
+    """Gets the steps from `step` to `limit`, including"""
+    acc = step
+    while acc < limit:
+        yield acc
+        acc += step
+
+    yield limit
+
+
+def chunks(data, size):
+    for i in range(0, len(data), size):
+        yield data[i : i + size]
+
+
+def main(filename, number, interval):
+    lines = []
+    regex = re.compile(r"^\[?r\d+")
+    with open(filename, "r") as handle:
+        for line in handle:
+            if not regex.match(line):
+                continue
+
+            rev, outcome = line.rstrip().split(maxsplit=1)
+            lines.append({"rev": rev, "outcome": outcome})
+
+    lines.reverse()
+
+    partitions = chunks(lines[:number], interval)
+    counters = OrderedDict()
+    outcomes = set()
+    revisions = []
+
+    for chunk in partitions:
+        chunk_outcomes = [line["outcome"] for line in chunk]
+        last_rev = chunk[-1]["rev"]
+        revisions.append(last_rev)
+        chunk_count = Counter(chunk_outcomes)
+        counters[last_rev] = chunk_count
+        outcomes.update(chunk_count.keys())
+
+    rows = []
+    for outcome in sorted(outcomes):
+        row = {"Outcome": outcome}
+        for rev in revisions:
+            row[">= " + rev] = str(counters[rev][outcome])
+        rows.append(row)
+
+    print(tabulate(rows))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument(
+        "-n",
+        "--number",
+        type=int,
+        default=4000,
+        help="Number of last results to process.",
+    )
+    parser.add_argument(
+        "-i", "--interval", type=int, default=1000, help="Step between summaries"
+    )
+    parser.add_argument("filename", type=str, help="Results output from wktesthunter.")
+
+    args = parser.parse_args()
+
+    main(args.filename, args.number, args.interval)
