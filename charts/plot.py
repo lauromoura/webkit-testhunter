@@ -145,6 +145,8 @@ def main():
         print("Output directory is not a directory", file=sys.stderr)
         sys.exit(1)
 
+    df["fixable"] = df["fixable"] - df["skipped"]
+
     plot_expected(df, args.port, args.config, args.directory)
     plot_unexpected(df, args.port, args.config, args.directory)
 
