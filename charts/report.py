@@ -23,6 +23,7 @@
 import json
 import argparse
 import csv
+import os
 
 
 def parse_args():
@@ -32,7 +33,9 @@ def parse_args():
     parser.add_argument(
         "-o", "--output", type=str, default="out.csv", help="Output file"
     )
-    parser.add_argument("filenames", type=str, nargs="+", help="Files to process")
+    parser.add_argument(
+        "filenames", type=str, nargs="+", help="Files or directory to process"
+    )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Print progress information"
     )
@@ -52,7 +55,19 @@ def parse_files(files, verbose, full_parse):
     If full_parse is false, it'll try to skip the huge "tests" field, jumping
     straight to the test run totals.
     """
+
+    try:
+        directory = files[0]
+        entries = os.listdir(directory)
+        files = map(lambda entry: os.path.join(directory, entry), entries)
+    except (TypeError, IndexError, NotADirectoryError) as exception:
+        if verbose:
+            print("Silently ignoring the following exception:")
+            print(exception)
+
     for filename in files:
+        if not filename.endswith("json"):
+            continue
         if verbose:
             print("Reading", filename)
         with open(filename) as handle:
