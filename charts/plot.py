@@ -23,6 +23,7 @@
 import os
 import sys
 import argparse
+import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -89,6 +90,40 @@ def port_str(port, config):
     return "%s-%s" % (port, config)
 
 
+MONTHS = (1, 7)
+
+def get_date_ticks(data):
+    """Gets a list of ticks covering the data from the given dataframe.
+
+    It assumes the date is stored as the dataframe index."""
+    current_year = datetime.date.today().year
+
+    max_date = data.index.max()
+    min_date = data.index.min()
+
+    starting_year = min_date.year
+    end_year = max_date.year if max_date.month < 7 else max_date.year + 1
+
+    starting_month = min_date.month
+    end_month =  max_date.month
+
+    acc = []
+    for year in range(starting_year, end_year+1):
+        for month in MONTHS:
+            # In the first year we don't need H1...
+            if year == starting_year:
+                # ..if we started logging in H2
+                if starting_month >= 7 and month == 1:
+                    continue
+            # In the last year we don't need H2
+            elif year == end_year:
+                # if we ended logging in H1
+                if end_month >= 7 and month == 7:
+                    break
+            acc.append(f"{year}-{month}")
+
+    return acc
+
 def read_df(filename):
     """Read the initial data for the given port and config"""
     df = pd.read_csv(filename, parse_dates=["date"])
@@ -130,7 +165,7 @@ def plot_unexpected(df, port, config, directory):
     plt.xlabel("Date")
     plt.ylabel("Number of tests")
     # FIXME Parametrize these ticks
-    ax.set_xticks(["2019-01", "2019-07", "2020-01", "2020-07"])
+    ax.set_xticks(get_date_ticks(df))
     ax.legend(["Regressions", "Flakies"], loc="center right", bbox_to_anchor=(1.5, 0.5))
     ax.grid(True, linestyle="-.")
     fig = ax.get_figure()
@@ -153,7 +188,7 @@ def plot_expected(df, port, config, directory):
     plt.xlabel("Date")
     plt.ylabel("Number of tests")
     # FIXME Parametrize these ticks
-    ax.set_xticks(["2019-01-01", "2019-07-01", "2020-01-01", "2020-07-01"])
+    ax.set_xticks(get_date_ticks(df))
     ax.legend(
         ["Fixable", "Skipped", "Passing"], loc="center right", bbox_to_anchor=(1.5, 0.5)
     )
