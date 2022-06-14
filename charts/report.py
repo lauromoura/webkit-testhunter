@@ -70,7 +70,7 @@ def parse_files(files, verbose, full_parse):
             continue
         if verbose:
             print("Reading", filename)
-        with open(filename) as handle:
+        with open(filename, encoding="utf-8") as handle:
             # The json files are wrapped in "ADD_RESULTS[<json payload>]"
             raw_data = handle.read()[len("ADD_RESULTS[") : -len("];")]
             if not full_parse:
@@ -86,7 +86,7 @@ def main():
     """Main script function"""
     args = parse_args()
 
-    with open(args.output, "w", newline="") as csvfile:
+    with open(args.output, "w", newline="", encoding="utf-8") as csvfile:
         files = parse_files(args.filenames, args.verbose, args.full_parse)
 
         try:
