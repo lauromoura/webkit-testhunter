@@ -73,9 +73,18 @@ def parse_files(files, verbose, full_parse):
         with open(filename, encoding="utf-8") as handle:
             # The json files are wrapped in "ADD_RESULTS[<json payload>]"
             raw_data = handle.read()[len("ADD_RESULTS[") : -len("];")]
+            # We have 2 versions of results files:
+            # - Version 3: Starts directly with "tests" key
+            # - Version 4: Added 'other_crashes' field, used by integration and
+            #   moves a few keys before the big "tests" one.
+            test_start = raw_data.find("\"tests\"")
+            prologue = raw_data[:test_start]
             if not full_parse:
-                idx = raw_data.find('"skipped":')
-                raw_data = "{" + raw_data[idx:]
+                if "version\":4" in prologue:
+                    epilogue_idx = raw_data.find('"num_passes"')
+                else:
+                    epilogue_idx = raw_data.find('"skipped"')
+                raw_data = prologue + raw_data[epilogue_idx:]
             data = json.loads(raw_data)
             if "tests" in data:
                 del data["tests"]
@@ -96,13 +105,33 @@ def main():
                 print("No entries found.")
             return
 
-        fieldnames = list(first.keys())
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        fieldnames_set = set(first.keys())
+        fieldnames_set.add('date')
+
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames_set)
+
 
         writer.writeheader()
-        writer.writerow(first)
+        if 'date' in first:
+            writer.writerow(first)
 
         for entry in files:
+            if 'date' not in entry:
+                print(f"Skipping entry {entry['revision']} as it's missing date")
+                continue
+
+            entry_keys = set(entry.keys())
+
+            not_present_keys = entry_keys - fieldnames_set
+            for key in not_present_keys:
+                if args.verbose:
+                    print(f"Ignoring key {key} with value {entry[key]} from current revision")
+                del entry[key]
+            missing_keys = fieldnames_set - entry_keys
+            for key in missing_keys:
+                if args.verbose:
+                    print(f"Adding placeholder 0 to key {key} for current revision")
+                entry[key] = 0
             if args.verbose:
                 print("Saving revision", entry["revision"])
             writer.writerow(entry)
