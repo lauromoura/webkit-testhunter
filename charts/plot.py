@@ -40,6 +40,10 @@ plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
+def parse_date(date_str):
+    """Helper to get a date object from a YYYY-MM-DD string"""
+    return datetime.datetime.strptime(date_str, "%Y-%m-%d")
+
 def parse_args():
     """Parse command line args"""
     parser = argparse.ArgumentParser()
@@ -63,6 +67,12 @@ def parse_args():
         default=os.getcwd(),
         help="Output directory. Defaults to the current one",
     )
+
+    parser.add_argument(
+        "--since",
+        default="2023-01-01",
+        type=parse_date,
+        help="Start date to generate the report, as YYYY-MM-DD")
 
     parser.add_argument("filename", help="File to be processed.")
 
@@ -124,10 +134,10 @@ def get_date_ticks(data):
 
     return acc
 
-def read_df(filename):
+def read_df(filename, since):
     """Read the initial data for the given port and config"""
     df = pd.read_csv(filename, parse_dates=["date"])
-    df = df[df["date"] > "2019-01-01"]
+    df = df[df["date"] > since]
     df.set_index("date", inplace=True)
     return df
 
@@ -137,7 +147,7 @@ def main():
 
     args = parse_args()
 
-    df = read_df(args.filename)
+    df = read_df(args.filename, since=args.since)
 
     if not os.path.exists(args.directory):
         os.makedirs(args.directory)
