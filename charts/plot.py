@@ -26,6 +26,8 @@ import argparse
 import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.dates import MonthLocator
+from pandas.plotting import register_matplotlib_converters
 
 SMALL_SIZE = 12
 MEDIUM_SIZE = 16
@@ -39,6 +41,8 @@ plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
 plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
+
+register_matplotlib_converters()
 
 def parse_date(date_str):
     """Helper to get a date object from a YYYY-MM-DD string"""
@@ -100,7 +104,7 @@ def port_str(port, config):
     return "%s-%s" % (port, config)
 
 
-MONTHS = (1, 7)
+MONTHS = (1, 4, 7, 10)
 
 def get_date_ticks(data):
     """Gets a list of ticks covering the data from the given dataframe.
@@ -111,11 +115,16 @@ def get_date_ticks(data):
     max_date = data.index.max()
     min_date = data.index.min()
 
+    print(f"Min date: {min_date}")
+    print(f"Max date: {max_date}")
+
     starting_year = min_date.year
-    end_year = max_date.year if max_date.month < 7 else max_date.year + 1
+    end_year = max_date.year if max_date.month < 10 else max_date.year + 1
 
     starting_month = min_date.month
-    end_month =  max_date.month
+    end_month = max_date.month if max_date.month < 10 else 1
+    print(f"Starting block: {starting_year}-{starting_month}")
+    print(f"Ending year: {end_year}-{end_month}")
 
     acc = []
     for year in range(starting_year, end_year+1):
@@ -133,6 +142,23 @@ def get_date_ticks(data):
             acc.append(f"{year}-{month}")
 
     return acc
+
+def generate_quarterly_ticks(df):
+    # Get the minimum and maximum dates from the 'date' column
+    start_date = df.index.min()
+    end_date = df.index.max()
+
+    # Get the quarter of the start date
+    start_quarter = start_date - pd.DateOffset(days=start_date.day - 1) - pd.DateOffset(months=(start_date.month-1)%3)
+    end_quarter = end_date + pd.DateOffset(days=end_date.day + 1) + pd.DateOffset(months=(end_date.month-1)%3)
+    end_quarter = end_quarter.replace(day=1)
+
+    # Generate quarterly ticks from the quarter immediately before the start date
+    quarterly_ticks = pd.date_range(start=start_quarter, end=end_quarter, freq='QS').tolist()
+
+    print(quarterly_ticks)
+
+    return quarterly_ticks
 
 def read_df(filename, since):
     """Read the initial data for the given port and config"""
@@ -177,12 +203,14 @@ def plot_unexpected(df, port, config, directory):
     plt.xlabel("Date")
     plt.ylabel("Number of tests")
     # FIXME Parametrize these ticks
-    ax.set_xticks(get_date_ticks(df))
+    # ax.set_xticks(generate_quarterly_ticks(df))
+    locator = MonthLocator(bymonthday=1, interval=1)
+    ax.xaxis.set_major_locator(locator)
     ax.legend(["Regressions", "Flakies"], loc="center right", bbox_to_anchor=(1.5, 0.5))
     ax.grid(True, linestyle="-.")
     fig = ax.get_figure()
     fig.savefig(
-        os.path.join(directory, ("%s-regr-flaky.png" % port_str(port, config))),
+        os.path.join(directory, ("%s-unexpected-regr-flaky.png" % port_str(port, config))),
         transparent=True,
         bbox_inches="tight",
     )
@@ -195,19 +223,21 @@ def plot_expected(df, port, config, directory):
     are crashes, flakies, timeouts and failures already gardened.
     """
     fig, ax = plt.subplots(facecolor="white", figsize=(5, 5), dpi=160)
-    df[["fixable", "skipped", "num_passes"]].rolling(50).mean().plot(ax=ax)
-    plt.title("%s - Passes, skips and known failures" % port_str(port, config))
+    # df[["fixable", "skipped", "num_passes"]].rolling(50).mean().plot(ax=ax)
+    df[["fixable", "skipped"]].rolling(50).mean().plot(ax=ax)
+    plt.title("%s - Expected skips and known failures" % port_str(port, config))
     plt.xlabel("Date")
     plt.ylabel("Number of tests")
     # FIXME Parametrize these ticks
-    ax.set_xticks(get_date_ticks(df))
+    locator = MonthLocator(bymonthday=1, interval=1)
+    ax.xaxis.set_major_locator(locator)
     ax.legend(
-        ["Fixable", "Skipped", "Passing"], loc="center right", bbox_to_anchor=(1.5, 0.5)
+        ["Fixable", "Skipped"], loc="center right", bbox_to_anchor=(1.5, 0.5)
     )
     ax.grid(True, linestyle="-.")
     fig = ax.get_figure()
     fig.savefig(
-        os.path.join(directory, ("%s-skip-fix-pass.png" % port_str(port, config))),
+        os.path.join(directory, ("%s-expected-results.png" % port_str(port, config))),
         transparent=True,
         bbox_inches="tight",
     )
