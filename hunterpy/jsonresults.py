@@ -9,6 +9,10 @@ from multiprocessing import Pool
 from hunterpy.definitions import bots, NOERROR, UNKNOWN
 from hunterpy.utils import OptionalColorText
 
+# Base directory for jsonresults, relative to this module's location
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_JSONRESULTS_DIR = os.path.join(_BASE_DIR, 'jsonresults')
+
 
 class ResultsParser():
 
@@ -56,7 +60,7 @@ class ResultsParser():
         if self.limit_to_last_n_results:
             max_rev = 1
             for bot in bots[self.bot_key_name]:
-                bot_dir = os.path.join('jsonresults', bot) # fixme: use (readlink -f) with python trick to get an abs path
+                bot_dir = os.path.join(_JSONRESULTS_DIR, bot)
                 if not os.path.isdir(bot_dir):
                     continue
                 json_result_files = os.listdir(bot_dir)
@@ -117,9 +121,9 @@ class ResultsParser():
                 continue
 
             try:
-                json_parsed = self._parse_json_result(os.path.join('jsonresults', bot_name, jsonresult))
+                json_parsed = self._parse_json_result(os.path.join(_JSONRESULTS_DIR, bot_name, jsonresult))
             except json.JSONDecodeError:
-                if self.print_debug: print ('WARNING: Exception caused by file: %s Ignoring file.' % os.path.join('jsonresults', bot_name, jsonresult))
+                if self.print_debug: print ('WARNING: Exception caused by file: %s Ignoring file.' % os.path.join(_JSONRESULTS_DIR, bot_name, jsonresult))
                 continue
 
             if self.print_debug and revision in ret[test]:
@@ -191,7 +195,7 @@ class ResultsParser():
             for result in reversed(last_json_result_files):
                 revision, buildnumber = self._get_revision_and_buildnumber_for_result(result)
                 try:
-                    json_parsed = self._parse_json_result(os.path.join('jsonresults', last_bot, result))
+                    json_parsed = self._parse_json_result(os.path.join(_JSONRESULTS_DIR, last_bot, result))
                     tests_data = json_parsed['tests']
                     failed_tests = self._recursive_test_path_value_finder(tests_data, failed_tests, revision)
                     revisions_with_runs.insert(0, revision)
@@ -215,7 +219,7 @@ class ResultsParser():
         raise NotImplementedError
 
     def _bot_has_jsonresults(self, bot_name):
-        bot_dir = os.path.join('jsonresults', bot_name) # fixme: use (readlink -f) with python trick to get an abs path
+        bot_dir = os.path.join(_JSONRESULTS_DIR, bot_name)
         if not os.path.isdir(bot_dir):
             return False
         json_result_files = []
@@ -225,7 +229,7 @@ class ResultsParser():
         return False
 
     def _get_sorted_list_of_jsonresults(self, bot_name):
-        bot_dir = os.path.join('jsonresults', bot_name) # fixme: use (readlink -f) with python trick to get an abs path
+        bot_dir = os.path.join(_JSONRESULTS_DIR, bot_name)
         assert(os.path.isdir(bot_dir))
         json_result_files = []
         for file in os.listdir(bot_dir):
