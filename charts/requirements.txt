@@ -1,0 +1,6 @@
+# Trend-charts tooling (report.py, plot_trends.py, trends/).
+# pandoc (for `make trends-html`) is a system package, not installed via pip.
+pandas
+numpy
+matplotlib>=3.6   # seaborn-v0_8-colorblind builtin style
+pytest            # tests/ (run: pytest)
